@@ -19,6 +19,7 @@ export function ExerciseCard({ exercise, onClick, trailing }: ExerciseCardProps)
       className="glass-card flex w-full items-center gap-3 rounded-lg p-3 text-left active:brightness-95"
     >
       <ExerciseGif
+        exerciseId={exercise.id}
         gifUrl={exercise.gifUrl}
         name={exercise.name}
         className="h-14 w-14 shrink-0"

@@ -57,8 +57,10 @@ export default function ExerciseDetail() {
       <PageLayout>
         {/* GIF hero */}
         <ExerciseGif
+          exerciseId={exercise.id}
           gifUrl={exercise.gifUrl}
           name={exercise.name}
+          allowFetch
           className="aspect-square w-full bg-gradient-to-b from-bg-surface to-bg-input"
         />
 

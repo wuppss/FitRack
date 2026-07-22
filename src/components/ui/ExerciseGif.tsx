@@ -1,35 +1,91 @@
-import { useState } from 'react'
-import { Dumbbell, ImageOff } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Dumbbell, ImageOff, Loader2 } from 'lucide-react'
 import { cn } from '../../lib/cn'
-import { getGifResolution } from '../../lib/exercisedb'
+import { getExerciseGifUrl, isRealExerciseId } from '../../lib/exercisedb'
 
 interface ExerciseGifProps {
-  gifUrl: string
+  /** ExerciseDB exercise id — used to fetch the GIF from the /image endpoint */
+  exerciseId?: string
+  /** direct GIF url, if the data ever provides one (takes priority) */
+  gifUrl?: string
   name: string
   className?: string
   rounded?: string
+  /**
+   * When true, the GIF is fetched from the API if not already cached (costs one
+   * request, then cached forever). When false/omitted, only an already-cached
+   * GIF is shown — no request is spent (used for list thumbnails).
+   */
+  allowFetch?: boolean
 }
 
-/** Applies the configured resolution to an ExerciseDB gif URL when possible. */
-function withResolution(url: string): string {
-  if (!url) return url
-  try {
-    const u = new URL(url)
-    if (!u.searchParams.has('resolution')) {
-      u.searchParams.set('resolution', getGifResolution())
+type Status = 'idle' | 'loading' | 'loaded' | 'error' | 'placeholder'
+
+export function ExerciseGif({
+  exerciseId,
+  gifUrl,
+  name,
+  className,
+  rounded = 'rounded-lg',
+  allowFetch = false,
+}: ExerciseGifProps) {
+  const [status, setStatus] = useState<Status>('idle')
+  const [src, setSrc] = useState<string>('')
+  const objectUrlRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const revoke = () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = null
+      }
     }
-    return u.toString()
-  } catch {
-    return url
-  }
-}
 
-export function ExerciseGif({ gifUrl, name, className, rounded = 'rounded-lg' }: ExerciseGifProps) {
-  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>(
-    gifUrl ? 'loading' : 'error',
-  )
+    // 1) A real direct URL wins (future-proofing; current API returns none).
+    if (gifUrl && /^https?:\/\//.test(gifUrl)) {
+      setSrc(gifUrl)
+      setStatus('loading')
+      return () => {
+        cancelled = true
+        revoke()
+      }
+    }
 
-  const showPlaceholder = !gifUrl || status === 'error'
+    // 2) Otherwise fetch/cache via the ExerciseDB image endpoint by id.
+    if (exerciseId && isRealExerciseId(exerciseId)) {
+      setStatus('loading')
+      getExerciseGifUrl(exerciseId, { allowNetwork: allowFetch })
+        .then((res) => {
+          if (cancelled) return
+          if (!res) {
+            setStatus('placeholder')
+            return
+          }
+          revoke()
+          objectUrlRef.current = res.url
+          setSrc(res.url)
+          setStatus('loaded')
+        })
+        .catch(() => {
+          if (!cancelled) setStatus('error')
+        })
+      return () => {
+        cancelled = true
+        revoke()
+      }
+    }
+
+    // 3) Nothing to show (bundled/seed exercise).
+    setStatus('placeholder')
+    return () => {
+      cancelled = true
+      revoke()
+    }
+  }, [exerciseId, gifUrl, allowFetch])
+
+  const showImg = status === 'loading' || status === 'loaded'
 
   return (
     <div
@@ -39,32 +95,41 @@ export function ExerciseGif({ gifUrl, name, className, rounded = 'rounded-lg' }:
         className,
       )}
     >
-      {showPlaceholder ? (
-        <div className="flex flex-col items-center gap-2 px-4 text-center">
-          {gifUrl ? (
-            <ImageOff size={28} className="text-txt-tertiary" />
+      {status === 'placeholder' || status === 'error' ? (
+        <div className="flex flex-col items-center gap-2 px-3 text-center">
+          {status === 'error' ? (
+            <ImageOff size={26} className="text-txt-tertiary" />
           ) : (
-            <Dumbbell size={28} className="text-txt-tertiary" />
+            <Dumbbell size={26} className="text-txt-tertiary" />
           )}
           <span className="text-[11px] leading-tight text-txt-tertiary">
-            {gifUrl ? 'GIF unavailable' : 'Sync library for demo GIF'}
+            {status === 'error' ? 'GIF unavailable' : 'Tap exercise to load GIF'}
           </span>
         </div>
       ) : (
-        <>
-          {status === 'loading' && <div className="absolute inset-0 skeleton" />}
-          <img
-            src={withResolution(gifUrl)}
-            alt={`${name} demonstration`}
-            loading="lazy"
-            onLoad={() => setStatus('loaded')}
-            onError={() => setStatus('error')}
-            className={cn(
-              'h-full w-full object-contain transition-opacity duration-300',
-              status === 'loaded' ? 'opacity-100' : 'opacity-0',
+        showImg && (
+          <>
+            {status === 'loading' && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute inset-0 skeleton" />
+                <Loader2 size={22} className="relative animate-spin text-txt-tertiary" />
+              </div>
             )}
-          />
-        </>
+            {src && (
+              <img
+                src={src}
+                alt={`${name} demonstration`}
+                loading="lazy"
+                onLoad={() => setStatus('loaded')}
+                onError={() => setStatus('error')}
+                className={cn(
+                  'h-full w-full object-contain transition-opacity duration-300',
+                  status === 'loaded' ? 'opacity-100' : 'opacity-0',
+                )}
+              />
+            )}
+          </>
+        )
       )}
     </div>
   )

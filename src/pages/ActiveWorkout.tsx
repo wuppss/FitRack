@@ -291,7 +291,7 @@ function ExerciseBlock({
   return (
     <GlassCard className="p-3">
       <div className="mb-2 flex items-center gap-3">
-        <ExerciseGif gifUrl={ex.gifUrl} name={ex.name} className="h-11 w-11 shrink-0" rounded="rounded-md" />
+        <ExerciseGif exerciseId={ex.exerciseId} gifUrl={ex.gifUrl} name={ex.name} allowFetch className="h-11 w-11 shrink-0" rounded="rounded-md" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold capitalize text-txt-primary">{ex.name}</p>
           <p className="text-xs capitalize text-txt-tertiary">{ex.target}</p>

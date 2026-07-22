@@ -1,6 +1,6 @@
 import type { Exercise, ExerciseDBRaw } from '../types'
 import { STORAGE_KEYS, loadJSON, saveJSON } from './storage'
-import { putExercises, countExercises } from './db'
+import { putExercises, countExercises, getGifBlob, putGifBlob } from './db'
 
 /**
  * ExerciseDB (RapidAPI) client — designed around the **Basic (free) plan**:
@@ -205,6 +205,66 @@ export async function syncExercises(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
+}
+
+// --- exercise GIFs ----------------------------------------------------------
+//
+// On the current ExerciseDB API the /exercises list endpoint does NOT return a
+// usable gifUrl. GIFs are served from a separate authenticated endpoint:
+//   GET /image?exerciseId=<id>&resolution=<res>   (needs the RapidAPI key)
+// Each call counts against the monthly request budget, so we fetch a GIF only
+// on demand and cache the blob permanently in IndexedDB — every exercise's GIF
+// then costs at most one request, ever.
+
+/** Synthetic bundled exercises can't be fetched from the API. */
+export function isRealExerciseId(id: string): boolean {
+  return Boolean(id) && !id.startsWith('seed-')
+}
+
+interface GifResult {
+  url: string // object URL for the cached blob
+  fromCache: boolean
+}
+
+/**
+ * Return an object URL for an exercise's demo GIF, fetching + caching it if
+ * needed. Callers own the returned object URL and should revoke it on unmount.
+ * Pass `allowNetwork: false` to only ever use the cache (no request spent).
+ */
+export async function getExerciseGifUrl(
+  exerciseId: string,
+  opts: { allowNetwork?: boolean } = {},
+): Promise<GifResult | null> {
+  if (!isRealExerciseId(exerciseId)) return null
+
+  const resolution = getGifResolution()
+  const key = `${exerciseId}:${resolution}`
+
+  const cached = await getGifBlob(key)
+  if (cached) return { url: URL.createObjectURL(cached), fromCache: true }
+
+  if (opts.allowNetwork === false) return null
+  if (!hasApiKey()) return null
+  if (remainingRequests() < 1) return null
+
+  const url = new URL(BASE + '/image')
+  url.searchParams.set('exerciseId', exerciseId)
+  url.searchParams.set('resolution', resolution)
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      'X-RapidAPI-Key': getApiKey(),
+      'X-RapidAPI-Host': HOST,
+    },
+  })
+  trackRequest(1)
+
+  if (!res.ok) {
+    throw new Error(`GIF request failed (${res.status}).`)
+  }
+  const blob = await res.blob()
+  await putGifBlob(key, blob)
+  return { url: URL.createObjectURL(blob), fromCache: false }
 }
 
 /** True once the catalog has been synced at least once. */
