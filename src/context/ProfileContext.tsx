@@ -16,6 +16,9 @@ const DEFAULT_PROFILE: Profile = {
   units: 'metric',
   goals: {
     calories: 2600,
+    protein: 160,
+    carbs: 290,
+    fat: 75,
     water: 2500,
     steps: 10000,
     weeklyWorkouts: 4,
@@ -44,9 +47,11 @@ const ACTIVITY_FACTOR: Record<Profile['activityLevel'], number> = {
 }
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
-  const [profile, setProfile] = useState<Profile>(() =>
-    loadJSON<Profile>(STORAGE_KEYS.profile, DEFAULT_PROFILE),
-  )
+  const [profile, setProfile] = useState<Profile>(() => {
+    const stored = loadJSON<Profile>(STORAGE_KEYS.profile, DEFAULT_PROFILE)
+    // Merge in any goal fields added in later versions (e.g. macro targets).
+    return { ...DEFAULT_PROFILE, ...stored, goals: { ...DEFAULT_PROFILE.goals, ...stored.goals } }
+  })
   const [weightLog, setWeightLog] = useState<WeightLog>(() =>
     loadJSON<WeightLog>(STORAGE_KEYS.weightLog, {}),
   )

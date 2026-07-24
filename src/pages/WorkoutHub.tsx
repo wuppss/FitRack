@@ -18,6 +18,7 @@ import { GlassCard } from '../components/ui/GlassCard'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { ActionSheet } from '../components/ui/ActionSheet'
+import { BodyPartChips } from '../components/ui/BodyPartChips'
 import { SectionHeader } from '../components/ui/SectionHeader'
 import { STARTER_TEMPLATES } from '../data/templates'
 import { useExercises } from '../context/ExerciseContext'
@@ -243,12 +244,16 @@ function TemplateBuilderSheet({
   onClose: () => void
   onSave: (name: string, exerciseIds: string[]) => void
 }) {
-  const { search } = useExercises()
+  const { search, bodyParts } = useExercises()
   const [name, setName] = useState('')
   const [q, setQ] = useState('')
+  const [bodyPart, setBodyPart] = useState<string | undefined>(undefined)
   const [selected, setSelected] = useState<string[]>([])
 
-  const results = useMemo(() => search(q).slice(0, 30), [search, q])
+  const results = useMemo(
+    () => search(q, { bodyPart }).slice(0, 30),
+    [search, q, bodyPart],
+  )
 
   const toggle = (id: string) => {
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
@@ -282,6 +287,13 @@ function TemplateBuilderSheet({
           />
         </div>
       </div>
+
+      <BodyPartChips
+        bodyParts={bodyParts}
+        selected={bodyPart}
+        onSelect={setBodyPart}
+        className="mt-3"
+      />
 
       <div className="mt-3 space-y-1.5">
         {results.map((ex) => {

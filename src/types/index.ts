@@ -126,6 +126,9 @@ export interface Profile {
 
 export interface Goals {
   calories: number
+  protein: number // grams
+  carbs: number // grams
+  fat: number // grams
   water: number // ml
   steps: number
   weeklyWorkouts: number

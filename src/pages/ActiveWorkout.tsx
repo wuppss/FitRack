@@ -20,6 +20,7 @@ import { GlassCard } from '../components/ui/GlassCard'
 import { Button } from '../components/ui/Button'
 import { ActionSheet } from '../components/ui/ActionSheet'
 import { ExerciseGif } from '../components/ui/ExerciseGif'
+import { BodyPartChips } from '../components/ui/BodyPartChips'
 import { ExerciseCard } from '../components/ExerciseCard'
 import { EmptyState } from '../components/ui/EmptyState'
 import { useWorkout } from '../context/WorkoutContext'
@@ -646,9 +647,13 @@ function AddExerciseSheet({
   existing: string[]
   onPick: (ex: import('../types').Exercise) => void
 }) {
-  const { search } = useExercises()
+  const { search, bodyParts } = useExercises()
   const [q, setQ] = useState('')
-  const results = useMemo(() => search(q).slice(0, 40), [search, q])
+  const [bodyPart, setBodyPart] = useState<string | undefined>(undefined)
+  const results = useMemo(
+    () => search(q, { bodyPart }).slice(0, 40),
+    [search, q, bodyPart],
+  )
 
   return (
     <ActionSheet open={open} onClose={onClose} title="Add Exercise">
@@ -662,6 +667,12 @@ function AddExerciseSheet({
           className="h-11 w-full rounded-md border border-white/5 bg-bg-input pl-10 pr-3 text-[15px] text-txt-primary placeholder:text-txt-tertiary outline-none focus:border-lime/40"
         />
       </div>
+      <BodyPartChips
+        bodyParts={bodyParts}
+        selected={bodyPart}
+        onSelect={setBodyPart}
+        className="mb-3"
+      />
       <div className="space-y-2">
         {results.map((ex) => {
           const added = existing.includes(ex.id)

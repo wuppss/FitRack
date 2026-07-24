@@ -9,6 +9,7 @@ import {
   Footprints,
   Dumbbell,
   KeyRound,
+  Beef,
   Download,
   Upload,
   Loader2,
@@ -133,6 +134,12 @@ export default function Profile() {
         />
         <GlassCard className="space-y-3">
           <GoalRow icon={Flame} color="#FF6B35" label="Calories" value={`${profile.goals.calories.toLocaleString()} kcal`} />
+          <GoalRow
+            icon={Beef}
+            color="#CCFF00"
+            label="Macros P / C / F"
+            value={`${profile.goals.protein} / ${profile.goals.carbs} / ${profile.goals.fat} g`}
+          />
           <GoalRow icon={Droplets} color="#00E5FF" label="Water" value={`${profile.goals.water.toLocaleString()} ml`} />
           <GoalRow icon={Footprints} color="#CCFF00" label="Steps" value={profile.goals.steps.toLocaleString()} />
           <GoalRow icon={Dumbbell} color="#B967FF" label="Workouts / week" value={String(profile.goals.weeklyWorkouts)} />
@@ -292,9 +299,25 @@ export default function Profile() {
 function GoalsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { profile, updateGoals, tdee } = useProfile()
   const [cal, setCal] = useState(String(profile.goals.calories))
+  const [protein, setProtein] = useState(String(profile.goals.protein))
+  const [carbs, setCarbs] = useState(String(profile.goals.carbs))
+  const [fat, setFat] = useState(String(profile.goals.fat))
   const [water, setWater] = useState(String(profile.goals.water))
   const [steps, setSteps] = useState(String(profile.goals.steps))
   const [workouts, setWorkouts] = useState(String(profile.goals.weeklyWorkouts))
+
+  // Auto-split calories into a balanced macro target:
+  // protein 1.8 g/kg bodyweight, fat 25% of kcal, remainder carbs.
+  const autoMacros = () => {
+    const kcal = Number(cal) || profile.goals.calories
+    const p = Math.round(profile.weight * 1.8)
+    const f = Math.round((kcal * 0.25) / 9)
+    const c = Math.max(0, Math.round((kcal - p * 4 - f * 9) / 4))
+    setProtein(String(p))
+    setFat(String(f))
+    setCarbs(String(c))
+  }
+
   return (
     <ActionSheet open={open} onClose={onClose} title="Edit Goals">
       <div className="space-y-3">
@@ -308,6 +331,24 @@ function GoalsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
             Use TDEE estimate ({tdee.toLocaleString()} kcal)
           </button>
         </div>
+
+        <div>
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-xs font-medium text-txt-secondary">Macros (g)</span>
+            <button type="button" onClick={autoMacros} className="text-xs text-lime">
+              Auto-calculate
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <Input label="Protein" type="number" suffix="g" value={protein} onChange={(e) => setProtein(e.target.value)} />
+            <Input label="Carbs" type="number" suffix="g" value={carbs} onChange={(e) => setCarbs(e.target.value)} />
+            <Input label="Fat" type="number" suffix="g" value={fat} onChange={(e) => setFat(e.target.value)} />
+          </div>
+          <p className="mt-1.5 text-[11px] text-txt-tertiary">
+            ≈ {Number(protein) * 4 + Number(carbs) * 4 + Number(fat) * 9 || 0} kcal from macros
+          </p>
+        </div>
+
         <Input label="Water (ml)" type="number" value={water} onChange={(e) => setWater(e.target.value)} />
         <Input label="Steps" type="number" value={steps} onChange={(e) => setSteps(e.target.value)} />
         <Input label="Workouts per week" type="number" value={workouts} onChange={(e) => setWorkouts(e.target.value)} />
@@ -319,6 +360,9 @@ function GoalsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
         onClick={() => {
           updateGoals({
             calories: Number(cal) || profile.goals.calories,
+            protein: Number(protein) || profile.goals.protein,
+            carbs: Number(carbs) || profile.goals.carbs,
+            fat: Number(fat) || profile.goals.fat,
             water: Number(water) || profile.goals.water,
             steps: Number(steps) || profile.goals.steps,
             weeklyWorkouts: Number(workouts) || profile.goals.weeklyWorkouts,

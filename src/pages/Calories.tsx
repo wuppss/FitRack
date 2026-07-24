@@ -28,7 +28,8 @@ export default function Calories() {
 
   const entries = entriesForDate()
   const totals = totalsForDate()
-  const goal = profile.goals.calories
+  const goals = profile.goals
+  const goal = goals.calories
   const remaining = Math.max(0, goal - totals.calories)
   const pct = Math.min(100, Math.round((totals.calories / goal) * 100))
 
@@ -106,11 +107,11 @@ export default function Calories() {
             </div>
           </div>
 
-          {/* Macro legend */}
-          <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-3">
-            <MacroLegend label="Protein" grams={totals.protein} color="#CCFF00" />
-            <MacroLegend label="Carbs" grams={totals.carbs} color="#00E5FF" />
-            <MacroLegend label="Fat" grams={totals.fat} color="#FF6B35" />
+          {/* Macro goals + progress */}
+          <div className="mt-4 space-y-3 border-t border-white/5 pt-3">
+            <MacroBar label="Protein" grams={totals.protein} goal={goals.protein} color="#CCFF00" />
+            <MacroBar label="Carbs" grams={totals.carbs} goal={goals.carbs} color="#00E5FF" />
+            <MacroBar label="Fat" grams={totals.fat} goal={goals.fat} color="#FF6B35" />
           </div>
         </GlassCard>
 
@@ -197,14 +198,40 @@ export default function Calories() {
   )
 }
 
-function MacroLegend({ label, grams, color }: { label: string; grams: number; color: string }) {
+function MacroBar({
+  label,
+  grams,
+  goal,
+  color,
+}: {
+  label: string
+  grams: number
+  goal: number
+  color: string
+}) {
+  const g = Math.round(grams)
+  const pct = goal > 0 ? Math.min(100, (grams / goal) * 100) : 0
   return (
-    <div className="text-center">
-      <div className="mb-1 flex items-center justify-center gap-1.5">
-        <span className="h-2 w-2 rounded-full" style={{ background: color }} />
-        <span className="text-[11px] text-txt-secondary">{label}</span>
+    <div>
+      <div className="mb-1 flex items-center justify-between text-xs">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+          <span className="text-txt-secondary">{label}</span>
+        </span>
+        <span className="text-txt-primary">
+          <span className="font-semibold">{g}</span>
+          <span className="text-txt-tertiary"> / {goal}g</span>
+        </span>
       </div>
-      <p className="text-data text-base text-txt-primary">{Math.round(grams)}g</p>
+      <div className="h-1.5 overflow-hidden rounded-full bg-white/5">
+        <motion.div
+          className="h-full rounded-full"
+          style={{ background: color }}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+        />
+      </div>
     </div>
   )
 }
