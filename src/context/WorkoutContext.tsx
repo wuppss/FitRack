@@ -20,6 +20,7 @@ interface WorkoutContextValue {
   updateSet: (exerciseId: string, setId: string, patch: Partial<WorkoutSet>) => void
   removeSet: (exerciseId: string, setId: string) => void
   toggleSetComplete: (exerciseId: string, setId: string) => void
+  setExerciseNotes: (exerciseId: string, notes: string) => void
   finishWorkout: () => WorkoutSession | null
   cancelWorkout: () => void
   deleteSession: (id: string) => void
@@ -178,6 +179,18 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     [mutateActive],
   )
 
+  const setExerciseNotes = useCallback(
+    (exerciseId: string, notes: string) => {
+      mutateActive((s) => ({
+        ...s,
+        exercises: s.exercises.map((e) =>
+          e.exerciseId !== exerciseId ? e : { ...e, notes },
+        ),
+      }))
+    },
+    [mutateActive],
+  )
+
   const finishWorkout = useCallback((): WorkoutSession | null => {
     let finished: WorkoutSession | null = null
     setActive((prev) => {
@@ -212,6 +225,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       updateSet,
       removeSet,
       toggleSetComplete,
+      setExerciseNotes,
       finishWorkout,
       cancelWorkout,
       deleteSession,
@@ -226,6 +240,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       updateSet,
       removeSet,
       toggleSetComplete,
+      setExerciseNotes,
       finishWorkout,
       cancelWorkout,
       deleteSession,

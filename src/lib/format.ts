@@ -52,3 +52,9 @@ export function titleCase(s: string): string {
 export function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n))
 }
+
+/** Epley estimated one-rep max. */
+export function epley1Rm(weight: number, reps: number): number {
+  if (weight <= 0 || reps <= 0) return 0
+  return weight * (1 + reps / 30)
+}

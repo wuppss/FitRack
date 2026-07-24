@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import CountUp from 'react-countup'
 import { Plus, Flame, Trash2, UtensilsCrossed } from 'lucide-react'
-import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
+import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, XAxis } from 'recharts'
 import { TopBar } from '../components/layout/TopBar'
 import { PageLayout } from '../components/layout/PageLayout'
 import { GlassCard } from '../components/ui/GlassCard'
@@ -11,9 +11,12 @@ import { Input } from '../components/ui/Input'
 import { ActionSheet } from '../components/ui/ActionSheet'
 import { SegmentedControl } from '../components/ui/SegmentedControl'
 import { EmptyState } from '../components/ui/EmptyState'
+import { SectionHeader } from '../components/ui/SectionHeader'
 import { useNutrition, MEAL_LABELS } from '../context/NutritionContext'
 import { useProfile } from '../context/ProfileContext'
 import type { FoodEntry, MealType } from '../types'
+import { dateKey } from '../lib/format'
+import { subDays, format } from 'date-fns'
 import { cn } from '../lib/cn'
 
 const MEALS: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack']
@@ -38,6 +41,17 @@ export default function Calories() {
     [totals],
   )
   const hasMacros = totals.protein + totals.carbs + totals.fat > 0
+
+  const weekly = useMemo(
+    () =>
+      Array.from({ length: 7 }).map((_, i) => {
+        const d = subDays(new Date(), 6 - i)
+        const kcal = totalsForDate(dateKey(d)).calories
+        return { day: format(d, 'EEEEE'), value: kcal, over: kcal > goal }
+      }),
+    [totalsForDate, goal],
+  )
+  const hasWeekly = weekly.some((d) => d.value > 0)
 
   return (
     <>
@@ -135,6 +149,38 @@ export default function Calories() {
               )
             })}
           </div>
+        )}
+
+        {/* Weekly chart */}
+        {hasWeekly && (
+          <>
+            <SectionHeader title="This Week" />
+            <GlassCard>
+              <div className="h-32 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={weekly} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
+                    <XAxis
+                      dataKey="day"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: '#5A5A5E', fontSize: 11 }}
+                    />
+                    <Bar dataKey="value" radius={[4, 4, 4, 4]} maxBarSize={22}>
+                      {weekly.map((d, i) => (
+                        <Cell
+                          key={i}
+                          fill={d.value === 0 ? '#1F1F1F' : d.over ? '#FF3B30' : '#FF6B35'}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="mt-2 text-center text-[11px] text-txt-tertiary">
+                Red bars exceeded your {goal.toLocaleString()} kcal goal
+              </p>
+            </GlassCard>
+          </>
         )}
       </PageLayout>
 

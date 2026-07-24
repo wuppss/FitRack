@@ -12,6 +12,8 @@ import {
   Search,
   SkipForward,
   Minus,
+  StickyNote,
+  Trophy,
 } from 'lucide-react'
 import { PageLayout } from '../components/layout/PageLayout'
 import { GlassCard } from '../components/ui/GlassCard'
@@ -24,8 +26,34 @@ import { useWorkout } from '../context/WorkoutContext'
 import { useExercises } from '../context/ExerciseContext'
 import { useProfile } from '../context/ProfileContext'
 import type { WorkoutExercise, WorkoutSession } from '../types'
-import { formatClock, formatDuration } from '../lib/format'
+import { formatClock, formatDuration, epley1Rm } from '../lib/format'
+import { STORAGE_KEYS, loadJSON, saveJSON } from '../lib/storage'
 import { cn } from '../lib/cn'
+
+const REST_PRESETS = [30, 60, 90, 120, 180, 300]
+
+/** exerciseIds in `finished` whose best estimated 1RM beats all previous history */
+function computePrs(finished: WorkoutSession, prevHistory: WorkoutSession[]): string[] {
+  const prs: string[] = []
+  for (const ex of finished.exercises) {
+    const cur = Math.max(
+      0,
+      ...ex.sets.filter((s) => s.completed).map((s) => epley1Rm(s.weight, s.reps)),
+    )
+    if (cur <= 0) continue
+    let prev = 0
+    for (const s of prevHistory) {
+      const pe = s.exercises.find((e) => e.exerciseId === ex.exerciseId)
+      if (!pe) continue
+      prev = Math.max(
+        prev,
+        ...pe.sets.filter((st) => st.completed).map((st) => epley1Rm(st.weight, st.reps)),
+      )
+    }
+    if (cur > prev) prs.push(ex.exerciseId)
+  }
+  return prs
+}
 
 /** newest-first history → compact summary of the most recent completed sets */
 function lastPerformance(
@@ -53,6 +81,7 @@ export default function ActiveWorkout() {
     updateSet,
     removeSet,
     toggleSetComplete,
+    setExerciseNotes,
     finishWorkout,
     cancelWorkout,
     history,
@@ -62,7 +91,12 @@ export default function ActiveWorkout() {
   const [now, setNow] = useState(Date.now())
   const [addOpen, setAddOpen] = useState(false)
   const [rest, setRest] = useState<{ total: number; endsAt: number } | null>(null)
+  const [restDefault, setRestDefault] = useState<number>(() =>
+    loadJSON<number>(STORAGE_KEYS.restDuration, 90),
+  )
+  const [restSheetOpen, setRestSheetOpen] = useState(false)
   const [summary, setSummary] = useState<WorkoutSession | null>(null)
+  const [summaryPrs, setSummaryPrs] = useState<string[]>([])
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
@@ -114,16 +148,27 @@ export default function ActiveWorkout() {
   }
 
   const handleFinish = () => {
+    // `history` here still excludes the finishing session, so it is the
+    // correct baseline for PR comparison.
     const done = finishWorkout()
-    if (done) setSummary(done)
+    if (done) {
+      setSummary(done)
+      setSummaryPrs(computePrs(done, history))
+    }
   }
 
   const completeSet = (exId: string, setId: string, wasCompleted: boolean) => {
     toggleSetComplete(exId, setId)
     if (!wasCompleted) {
       // starting rest on completion
-      setRest({ total: 90, endsAt: Date.now() + 90 * 1000 })
+      setRest({ total: restDefault, endsAt: Date.now() + restDefault * 1000 })
     }
+  }
+
+  const chooseRestDefault = (seconds: number) => {
+    setRestDefault(seconds)
+    saveJSON(STORAGE_KEYS.restDuration, seconds)
+    setRestSheetOpen(false)
   }
 
   return (
@@ -160,6 +205,15 @@ export default function ActiveWorkout() {
       </header>
 
       <div className="px-5 pb-40 pt-4">
+        {/* Rest preset pill */}
+        <button
+          onClick={() => setRestSheetOpen(true)}
+          className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-bg-elevated px-3 py-1.5 text-xs font-medium text-txt-secondary active:brightness-95"
+        >
+          <Timer size={14} className="text-lime" />
+          Rest timer: {formatClock(restDefault)}
+        </button>
+
         {active.exercises.length === 0 ? (
           <EmptyState
             icon={Plus}
@@ -180,6 +234,7 @@ export default function ActiveWorkout() {
                 onUpdateSet={(setId, patch) => updateSet(ex.exerciseId, setId, patch)}
                 onRemoveSet={(setId) => removeSet(ex.exerciseId, setId)}
                 onToggle={(setId, was) => completeSet(ex.exerciseId, setId, was)}
+                onNotes={(notes) => setExerciseNotes(ex.exerciseId, notes)}
               />
             ))}
           </div>
@@ -226,23 +281,69 @@ export default function ActiveWorkout() {
         }}
       />
 
+      {/* Rest duration sheet */}
+      <ActionSheet
+        open={restSheetOpen}
+        onClose={() => setRestSheetOpen(false)}
+        title="Rest Timer"
+      >
+        <p className="mb-3 text-xs text-txt-secondary">
+          Rest starts automatically each time you complete a set.
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          {REST_PRESETS.map((s) => (
+            <button
+              key={s}
+              onClick={() => chooseRestDefault(s)}
+              className={cn(
+                'rounded-md py-3 text-sm font-semibold transition-colors',
+                restDefault === s
+                  ? 'bg-lime text-black'
+                  : 'bg-bg-surface text-txt-secondary active:brightness-90',
+              )}
+            >
+              {formatClock(s)}
+            </button>
+          ))}
+        </div>
+      </ActionSheet>
+
       {/* Summary sheet */}
-      <ActionSheet open={Boolean(summary)} onClose={() => {}} title="Workout Complete 🎉">
+      <ActionSheet
+        open={Boolean(summary)}
+        onClose={() => {}}
+        title={
+          summaryPrs.length > 0
+            ? `Workout Complete 🎉 ${summaryPrs.length} new PR${summaryPrs.length === 1 ? '' : 's'}!`
+            : 'Workout Complete 🎉'
+        }
+      >
         {summary && (
           <div>
             <div className="grid grid-cols-3 gap-3">
               <SummaryStat label="Duration" value={formatDuration((summary.endTime ?? 0) - summary.startTime)} />
               <SummaryStat label="Volume" value={`${Math.round(summary.totalVolume).toLocaleString()} kg`} />
-              <SummaryStat label="Exercises" value={String(summary.exercises.length)} />
+              {summaryPrs.length > 0 ? (
+                <SummaryStat label="New PRs" value={String(summaryPrs.length)} />
+              ) : (
+                <SummaryStat label="Exercises" value={String(summary.exercises.length)} />
+              )}
             </div>
             <div className="mt-4 space-y-2">
               {summary.exercises.map((ex) => (
                 <div
                   key={ex.exerciseId}
-                  className="flex items-center justify-between rounded-md bg-bg-surface px-3 py-2"
+                  className="flex items-center justify-between gap-2 rounded-md bg-bg-surface px-3 py-2"
                 >
-                  <span className="truncate text-sm capitalize text-txt-primary">{ex.name}</span>
-                  <span className="text-xs text-txt-secondary">
+                  <span className="min-w-0 flex-1 truncate text-sm capitalize text-txt-primary">
+                    {ex.name}
+                  </span>
+                  {summaryPrs.includes(ex.exerciseId) && (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-lime/15 px-2 py-0.5 text-[11px] font-semibold text-lime">
+                      <Trophy size={11} /> PR
+                    </span>
+                  )}
+                  <span className="shrink-0 text-xs text-txt-secondary">
                     {ex.sets.filter((s) => s.completed).length} sets
                   </span>
                 </div>
@@ -255,6 +356,7 @@ export default function ActiveWorkout() {
               icon={<Check size={20} />}
               onClick={() => {
                 setSummary(null)
+                setSummaryPrs([])
                 navigate('/')
               }}
             >
@@ -296,6 +398,7 @@ function ExerciseBlock({
   onUpdateSet,
   onRemoveSet,
   onToggle,
+  onNotes,
 }: {
   ex: WorkoutExercise
   units: 'metric' | 'imperial'
@@ -305,9 +408,11 @@ function ExerciseBlock({
   onUpdateSet: (setId: string, patch: Partial<{ weight: number; reps: number; rpe: number }>) => void
   onRemoveSet: (setId: string) => void
   onToggle: (setId: string, wasCompleted: boolean) => void
+  onNotes: (notes: string) => void
 }) {
   const unit = units === 'metric' ? 'kg' : 'lb'
   const grid = 'grid-cols-[24px_1fr_1fr_48px_40px]'
+  const [notesOpen, setNotesOpen] = useState(() => ex.notes.length > 0)
   return (
     <GlassCard className="p-3">
       <div className="mb-2 flex items-center gap-3">
@@ -325,6 +430,16 @@ function ExerciseBlock({
           </p>
         </div>
         <button
+          onClick={() => setNotesOpen((o) => !o)}
+          className={cn(
+            'flex h-8 w-8 items-center justify-center rounded-full active:bg-white/5',
+            notesOpen || ex.notes ? 'text-lime' : 'text-txt-tertiary',
+          )}
+          aria-label="Exercise notes"
+        >
+          <StickyNote size={16} />
+        </button>
+        <button
           onClick={onRemove}
           className="flex h-8 w-8 items-center justify-center rounded-full text-txt-tertiary active:bg-white/5"
           aria-label="Remove exercise"
@@ -332,6 +447,16 @@ function ExerciseBlock({
           <Trash2 size={16} />
         </button>
       </div>
+
+      {notesOpen && (
+        <textarea
+          value={ex.notes}
+          onChange={(e) => onNotes(e.target.value)}
+          placeholder="Notes — grip, seat height, cues…"
+          rows={2}
+          className="mb-2 w-full resize-none rounded-md border border-white/5 bg-bg-input p-2.5 text-sm text-txt-primary placeholder:text-txt-tertiary outline-none focus:border-lime/40"
+        />
+      )}
 
       {/* Column labels */}
       <div className={cn('mb-1 grid items-center gap-1.5 px-1 text-[10px] uppercase tracking-wide text-txt-tertiary', grid)}>

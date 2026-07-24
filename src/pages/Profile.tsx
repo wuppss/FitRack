@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Ruler,
@@ -10,6 +10,7 @@ import {
   Dumbbell,
   KeyRound,
   Download,
+  Upload,
   Loader2,
   Check,
   ChevronRight,
@@ -40,6 +41,7 @@ import {
   MONTHLY_REQUEST_LIMIT,
   type GifResolution,
 } from '../lib/exercisedb'
+import { exportData, importData } from '../lib/backup'
 import { cn } from '../lib/cn'
 import { titleCase } from '../lib/format'
 import type { ActivityLevel } from '../types'
@@ -48,6 +50,7 @@ export default function Profile() {
   const navigate = useNavigate()
   const { profile, updateProfile, bmr, tdee } = useProfile()
   const { history } = useWorkout()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const {
     syncedCount,
     syncing,
@@ -224,8 +227,38 @@ export default function Profile() {
           <NavRow icon={Footprints} label="Steps Tracker" onClick={() => navigate('/steps')} />
         </div>
 
-        {/* Danger zone */}
+        {/* Data management */}
         <SectionHeader title="Data" />
+        <div className="mb-2 grid grid-cols-2 gap-2">
+          <Button variant="secondary" icon={<Download size={16} />} onClick={exportData}>
+            Export
+          </Button>
+          <Button
+            variant="secondary"
+            icon={<Upload size={16} />}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            Import
+          </Button>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={async (e) => {
+            const file = e.target.files?.[0]
+            e.target.value = '' // allow re-selecting the same file
+            if (!file) return
+            try {
+              const n = await importData(file)
+              alert(`Restored ${n} data section${n === 1 ? '' : 's'}. Reloading…`)
+              location.reload()
+            } catch (err) {
+              alert(err instanceof Error ? err.message : 'Import failed.')
+            }
+          }}
+        />
         <button
           onClick={() => {
             if (confirm('Reset ALL app data? This clears profile, logs and workout history.')) {
@@ -257,7 +290,7 @@ export default function Profile() {
 }
 
 function GoalsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { profile, updateGoals } = useProfile()
+  const { profile, updateGoals, tdee } = useProfile()
   const [cal, setCal] = useState(String(profile.goals.calories))
   const [water, setWater] = useState(String(profile.goals.water))
   const [steps, setSteps] = useState(String(profile.goals.steps))
@@ -265,7 +298,16 @@ function GoalsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <ActionSheet open={open} onClose={onClose} title="Edit Goals">
       <div className="space-y-3">
-        <Input label="Calories (kcal)" type="number" value={cal} onChange={(e) => setCal(e.target.value)} />
+        <div>
+          <Input label="Calories (kcal)" type="number" value={cal} onChange={(e) => setCal(e.target.value)} />
+          <button
+            type="button"
+            onClick={() => setCal(String(tdee))}
+            className="mt-1.5 text-xs text-lime"
+          >
+            Use TDEE estimate ({tdee.toLocaleString()} kcal)
+          </button>
+        </div>
         <Input label="Water (ml)" type="number" value={water} onChange={(e) => setWater(e.target.value)} />
         <Input label="Steps" type="number" value={steps} onChange={(e) => setSteps(e.target.value)} />
         <Input label="Workouts per week" type="number" value={workouts} onChange={(e) => setWorkouts(e.target.value)} />

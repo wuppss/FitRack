@@ -1,20 +1,23 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Dumbbell, Trash2, Clock, Layers, TrendingUp } from 'lucide-react'
+import { Dumbbell, Trash2, Clock, Layers, TrendingUp, Check, StickyNote } from 'lucide-react'
 import { TopBar } from '../components/layout/TopBar'
 import { PageLayout } from '../components/layout/PageLayout'
 import { GlassCard } from '../components/ui/GlassCard'
+import { ActionSheet } from '../components/ui/ActionSheet'
 import { EmptyState } from '../components/ui/EmptyState'
 import { SectionHeader } from '../components/ui/SectionHeader'
 import { useWorkout } from '../context/WorkoutContext'
-import { dateKey, prettyDate, formatDuration } from '../lib/format'
+import type { WorkoutSession } from '../types'
+import { dateKey, prettyDate, prettyTime, formatDuration } from '../lib/format'
 import { subDays, format } from 'date-fns'
 import { cn } from '../lib/cn'
 
 export default function History() {
   const navigate = useNavigate()
   const { history, deleteSession } = useWorkout()
+  const [selected, setSelected] = useState<WorkoutSession | null>(null)
 
   const volumeByDay = useMemo(() => {
     const map = new Map<string, number>()
@@ -111,7 +114,7 @@ export default function History() {
                     exit={{ opacity: 0, x: -40 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <GlassCard>
+                    <GlassCard interactive onClick={() => setSelected(s)}>
                       <div className="flex items-start justify-between">
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-txt-primary">{s.name}</p>
@@ -120,7 +123,10 @@ export default function History() {
                           </p>
                         </div>
                         <button
-                          onClick={() => deleteSession(s.id)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteSession(s.id)
+                          }}
                           className="ml-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-txt-tertiary active:bg-error/10 active:text-error"
                           aria-label="Delete"
                         >
@@ -171,6 +177,63 @@ export default function History() {
           </>
         )}
       </PageLayout>
+
+      {/* Session detail */}
+      <ActionSheet
+        open={Boolean(selected)}
+        onClose={() => setSelected(null)}
+        title={selected?.name ?? ''}
+      >
+        {selected && (
+          <div>
+            <p className="mb-4 text-xs text-txt-secondary">
+              {prettyDate(selected.startTime)} · {prettyTime(selected.startTime)}
+              {selected.endTime &&
+                ` · ${formatDuration(selected.endTime - selected.startTime)}`}{' '}
+              · {Math.round(selected.totalVolume).toLocaleString()} kg volume
+            </p>
+            <div className="space-y-4">
+              {selected.exercises.map((ex) => (
+                <div key={ex.exerciseId}>
+                  <p className="mb-1.5 text-sm font-semibold capitalize text-txt-primary">
+                    {ex.name}
+                  </p>
+                  {ex.notes && (
+                    <p className="mb-1.5 flex items-start gap-1.5 rounded-md bg-bg-surface px-2.5 py-2 text-xs text-txt-secondary">
+                      <StickyNote size={13} className="mt-0.5 shrink-0 text-lime" />
+                      {ex.notes}
+                    </p>
+                  )}
+                  <div className="space-y-1">
+                    {ex.sets.map((set, i) => (
+                      <div
+                        key={set.id}
+                        className={cn(
+                          'flex items-center gap-3 rounded-md px-2.5 py-1.5 text-sm',
+                          set.completed ? 'bg-lime/[0.07]' : 'bg-bg-surface opacity-60',
+                        )}
+                      >
+                        <span className="w-5 text-xs font-semibold text-txt-tertiary">
+                          {i + 1}
+                        </span>
+                        <span className="flex-1 text-txt-primary">
+                          {set.weight} kg × {set.reps}
+                          {set.rpe ? (
+                            <span className="ml-1.5 text-xs text-txt-tertiary">
+                              @RPE {set.rpe}
+                            </span>
+                          ) : null}
+                        </span>
+                        {set.completed && <Check size={14} className="text-lime" />}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </ActionSheet>
     </>
   )
 }
