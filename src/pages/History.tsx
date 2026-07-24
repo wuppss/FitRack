@@ -169,7 +169,7 @@ export default function History() {
             </div>
 
             <button
-              onClick={() => navigate('/stats')}
+              onClick={() => navigate('/progress')}
               className={cn('mt-6 w-full text-center text-sm text-txt-secondary')}
             >
               View detailed stats →

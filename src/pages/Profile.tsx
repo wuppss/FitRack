@@ -230,7 +230,7 @@ export default function Profile() {
         <SectionHeader title="More" />
         <div className="space-y-2">
           <NavRow icon={HistoryIcon} label="Workout History" onClick={() => navigate('/history')} />
-          <NavRow icon={BarChart3} label="Statistics" onClick={() => navigate('/stats')} />
+          <NavRow icon={BarChart3} label="Statistics" onClick={() => navigate('/progress')} />
           <NavRow icon={Footprints} label="Steps Tracker" onClick={() => navigate('/steps')} />
         </div>
 

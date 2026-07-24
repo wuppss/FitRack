@@ -39,6 +39,7 @@ export const STORAGE_KEYS = {
   templates: 'fitrack:templates',
   weightLog: 'fitrack:weightLog',
   restDuration: 'fitrack:restDuration',
+  favorites: 'fitrack:favorites',
 } as const
 
 /** Simple id generator good enough for local records. */

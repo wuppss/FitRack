@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Plus, Target, Dumbbell, Layers, ListChecks, Check } from 'lucide-react'
+import { Plus, Target, Dumbbell, Layers, ListChecks, Check, Bookmark } from 'lucide-react'
 import { TopBar } from '../components/layout/TopBar'
 import { PageLayout } from '../components/layout/PageLayout'
 import { GlassCard } from '../components/ui/GlassCard'
@@ -11,6 +11,7 @@ import { ExerciseCard } from '../components/ExerciseCard'
 import { SectionHeader } from '../components/ui/SectionHeader'
 import { useExercises } from '../context/ExerciseContext'
 import { useWorkout } from '../context/WorkoutContext'
+import { useFavorites } from '../context/FavoritesContext'
 import { titleCase } from '../lib/format'
 
 export default function ExerciseDetail() {
@@ -18,6 +19,7 @@ export default function ExerciseDetail() {
   const navigate = useNavigate()
   const { byId, exercises } = useExercises()
   const { active, startWorkout, addExerciseToActive } = useWorkout()
+  const { isFavorite, toggleFavorite } = useFavorites()
 
   const exercise = id ? byId(id) : undefined
 
@@ -53,7 +55,23 @@ export default function ExerciseDetail() {
 
   return (
     <>
-      <TopBar back title="" />
+      <TopBar
+        back
+        title=""
+        right={
+          <button
+            onClick={() => toggleFavorite(exercise.id)}
+            className="flex h-10 w-10 items-center justify-center rounded-full active:bg-white/5"
+            aria-label={isFavorite(exercise.id) ? 'Remove bookmark' : 'Bookmark'}
+          >
+            <Bookmark
+              size={22}
+              className={isFavorite(exercise.id) ? 'text-lime' : 'text-txt-secondary'}
+              fill={isFavorite(exercise.id) ? '#CCFF00' : 'none'}
+            />
+          </button>
+        }
+      />
       <PageLayout>
         {/* GIF hero */}
         <ExerciseGif

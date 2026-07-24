@@ -146,7 +146,7 @@ export default function Dashboard() {
               title="Weekly Activity"
               action={
                 <button
-                  onClick={() => navigate('/stats')}
+                  onClick={() => navigate('/progress')}
                   className="flex items-center gap-1 text-xs text-txt-secondary"
                 >
                   Stats <ChevronRight size={14} />

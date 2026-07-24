@@ -6,20 +6,23 @@ import { NutritionProvider } from './NutritionContext'
 import { WaterProvider } from './WaterContext'
 import { StepsProvider } from './StepsContext'
 import { TemplateProvider } from './TemplateContext'
+import { FavoritesProvider } from './FavoritesContext'
 
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <ProfileProvider>
       <ExerciseProvider>
-        <WorkoutProvider>
-          <TemplateProvider>
-            <NutritionProvider>
-              <WaterProvider>
-                <StepsProvider>{children}</StepsProvider>
-              </WaterProvider>
-            </NutritionProvider>
-          </TemplateProvider>
-        </WorkoutProvider>
+        <FavoritesProvider>
+          <WorkoutProvider>
+            <TemplateProvider>
+              <NutritionProvider>
+                <WaterProvider>
+                  <StepsProvider>{children}</StepsProvider>
+                </WaterProvider>
+              </NutritionProvider>
+            </TemplateProvider>
+          </WorkoutProvider>
+        </FavoritesProvider>
       </ExerciseProvider>
     </ProfileProvider>
   )
