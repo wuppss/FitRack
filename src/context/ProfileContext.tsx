@@ -1,6 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Goals, Profile } from '../types'
 import { STORAGE_KEYS, loadJSON, saveJSON } from '../lib/storage'
+import { dateKey } from '../lib/format'
+
+/** kg per day, keyed by yyyy-MM-dd */
+export type WeightLog = Record<string, number>
 
 const DEFAULT_PROFILE: Profile = {
   name: 'Athlete',
@@ -22,6 +26,9 @@ interface ProfileContextValue {
   profile: Profile
   updateProfile: (patch: Partial<Profile>) => void
   updateGoals: (patch: Partial<Goals>) => void
+  /** update current weight AND record it in the daily weight log */
+  logWeight: (kg: number) => void
+  weightLog: WeightLog
   bmr: number
   tdee: number
 }
@@ -40,10 +47,17 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile>(() =>
     loadJSON<Profile>(STORAGE_KEYS.profile, DEFAULT_PROFILE),
   )
+  const [weightLog, setWeightLog] = useState<WeightLog>(() =>
+    loadJSON<WeightLog>(STORAGE_KEYS.weightLog, {}),
+  )
 
   useEffect(() => {
     saveJSON(STORAGE_KEYS.profile, profile)
   }, [profile])
+
+  useEffect(() => {
+    saveJSON(STORAGE_KEYS.weightLog, weightLog)
+  }, [weightLog])
 
   const value = useMemo<ProfileContextValue>(() => {
     // Mifflin-St Jeor
@@ -52,12 +66,18 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     const tdee = Math.round(bmr * ACTIVITY_FACTOR[profile.activityLevel])
     return {
       profile,
+      weightLog,
       bmr,
       tdee,
       updateProfile: (patch) => setProfile((p) => ({ ...p, ...patch })),
       updateGoals: (patch) => setProfile((p) => ({ ...p, goals: { ...p.goals, ...patch } })),
+      logWeight: (kg) => {
+        if (kg <= 0) return
+        setProfile((p) => ({ ...p, weight: kg }))
+        setWeightLog((l) => ({ ...l, [dateKey()]: kg }))
+      },
     }
-  }, [profile])
+  }, [profile, weightLog])
 
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>
 }

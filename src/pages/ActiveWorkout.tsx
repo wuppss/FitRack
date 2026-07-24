@@ -27,6 +27,21 @@ import type { WorkoutExercise, WorkoutSession } from '../types'
 import { formatClock, formatDuration } from '../lib/format'
 import { cn } from '../lib/cn'
 
+/** newest-first history → compact summary of the most recent completed sets */
+function lastPerformance(
+  history: WorkoutSession[],
+  exerciseId: string,
+): string | null {
+  for (const s of history) {
+    const ex = s.exercises.find((e) => e.exerciseId === exerciseId)
+    if (!ex) continue
+    const done = ex.sets.filter((st) => st.completed && (st.weight > 0 || st.reps > 0))
+    if (done.length === 0) continue
+    return done.map((st) => `${st.weight}×${st.reps}`).join(' · ')
+  }
+  return null
+}
+
 export default function ActiveWorkout() {
   const navigate = useNavigate()
   const {
@@ -40,6 +55,7 @@ export default function ActiveWorkout() {
     toggleSetComplete,
     finishWorkout,
     cancelWorkout,
+    history,
   } = useWorkout()
 
   const units = useProfile().profile.units
@@ -158,6 +174,7 @@ export default function ActiveWorkout() {
                 key={ex.exerciseId}
                 ex={ex}
                 units={units}
+                last={lastPerformance(history, ex.exerciseId)}
                 onAddSet={() => addSet(ex.exerciseId)}
                 onRemove={() => removeExerciseFromActive(ex.exerciseId)}
                 onUpdateSet={(setId, patch) => updateSet(ex.exerciseId, setId, patch)}
@@ -273,6 +290,7 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
 function ExerciseBlock({
   ex,
   units,
+  last,
   onAddSet,
   onRemove,
   onUpdateSet,
@@ -281,6 +299,7 @@ function ExerciseBlock({
 }: {
   ex: WorkoutExercise
   units: 'metric' | 'imperial'
+  last: string | null
   onAddSet: () => void
   onRemove: () => void
   onUpdateSet: (setId: string, patch: Partial<{ weight: number; reps: number; rpe: number }>) => void
@@ -288,13 +307,22 @@ function ExerciseBlock({
   onToggle: (setId: string, wasCompleted: boolean) => void
 }) {
   const unit = units === 'metric' ? 'kg' : 'lb'
+  const grid = 'grid-cols-[24px_1fr_1fr_48px_40px]'
   return (
     <GlassCard className="p-3">
       <div className="mb-2 flex items-center gap-3">
         <ExerciseGif exerciseId={ex.exerciseId} gifUrl={ex.gifUrl} name={ex.name} allowFetch className="h-11 w-11 shrink-0" rounded="rounded-md" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold capitalize text-txt-primary">{ex.name}</p>
-          <p className="text-xs capitalize text-txt-tertiary">{ex.target}</p>
+          <p className="truncate text-xs capitalize text-txt-tertiary">
+            {last ? (
+              <>
+                <span className="font-medium text-txt-secondary">Last:</span> {last}
+              </>
+            ) : (
+              ex.target
+            )}
+          </p>
         </div>
         <button
           onClick={onRemove}
@@ -306,11 +334,12 @@ function ExerciseBlock({
       </div>
 
       {/* Column labels */}
-      <div className="mb-1 grid grid-cols-[28px_1fr_1fr_44px] items-center gap-2 px-1 text-[10px] uppercase tracking-wide text-txt-tertiary">
+      <div className={cn('mb-1 grid items-center gap-1.5 px-1 text-[10px] uppercase tracking-wide text-txt-tertiary', grid)}>
         <span>Set</span>
         <span className="text-center">{unit}</span>
         <span className="text-center">Reps</span>
-        <span className="text-center">Done</span>
+        <span className="text-center">RPE</span>
+        <span className="text-center">✓</span>
       </div>
 
       <div className="space-y-1.5">
@@ -318,7 +347,8 @@ function ExerciseBlock({
           <div
             key={set.id}
             className={cn(
-              'grid grid-cols-[28px_1fr_1fr_44px] items-center gap-2 rounded-md px-1 py-1 transition-colors',
+              'grid items-center gap-1.5 rounded-md px-1 py-1 transition-colors',
+              grid,
               set.completed && 'bg-lime/[0.07]',
             )}
           >
@@ -332,6 +362,11 @@ function ExerciseBlock({
               value={set.reps}
               onChange={(v) => onUpdateSet(set.id, { reps: v })}
               step={1}
+            />
+            <NumberField
+              value={set.rpe ?? 0}
+              onChange={(v) => onUpdateSet(set.id, { rpe: clampRpe(v) })}
+              step={0.5}
             />
             <div className="flex justify-center">
               <button
@@ -370,6 +405,10 @@ function ExerciseBlock({
       </div>
     </GlassCard>
   )
+}
+
+function clampRpe(v: number): number {
+  return Math.max(0, Math.min(10, v))
 }
 
 function NumberField({

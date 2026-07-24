@@ -18,8 +18,9 @@ import { GlassCard } from '../components/ui/GlassCard'
 import { EmptyState } from '../components/ui/EmptyState'
 import { SectionHeader } from '../components/ui/SectionHeader'
 import { useWorkout } from '../context/WorkoutContext'
+import { useProfile } from '../context/ProfileContext'
 import { titleCase } from '../lib/format'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 
 interface PR {
   name: string
@@ -30,8 +31,18 @@ interface PR {
 
 export default function Stats() {
   const { history } = useWorkout()
+  const { weightLog } = useProfile()
 
   const completed = useMemo(() => history.filter((s) => s.endTime), [history])
+
+  const weightSeries = useMemo(
+    () =>
+      Object.entries(weightLog)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .slice(-30)
+        .map(([date, kg]) => ({ date: format(parseISO(date), 'MMM d'), kg })),
+    [weightLog],
+  )
 
   const prs = useMemo<PR[]>(() => {
     const map = new Map<string, PR>()
@@ -75,7 +86,7 @@ export default function Stats() {
       .slice(0, 8)
   }, [completed])
 
-  if (completed.length === 0) {
+  if (completed.length === 0 && weightSeries.length < 2) {
     return (
       <>
         <TopBar title="Statistics" back />
@@ -96,6 +107,49 @@ export default function Stats() {
     <>
       <TopBar title="Statistics" back />
       <PageLayout>
+        {/* Body weight trend */}
+        {weightSeries.length >= 2 && (
+          <>
+            <SectionHeader title="Body Weight" />
+            <GlassCard>
+              <div className="h-40 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={weightSeries} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+                    <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: '#5A5A5E', fontSize: 10 }} />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: '#5A5A5E', fontSize: 10 }}
+                      width={40}
+                      domain={['dataMin - 1', 'dataMax + 1']}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: '#111',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: 12,
+                        fontSize: 12,
+                      }}
+                      labelStyle={{ color: '#8A8A8E' }}
+                      formatter={(v) => [`${v} kg`, 'Weight']}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="kg"
+                      stroke="#00E5FF"
+                      strokeWidth={2.5}
+                      dot={{ r: 3, fill: '#00E5FF' }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </GlassCard>
+          </>
+        )}
+
+        {completed.length > 0 && (
+          <>
         {/* Volume progression */}
         <SectionHeader title="Volume Progression" />
         <GlassCard>
@@ -174,6 +228,8 @@ export default function Stats() {
             </GlassCard>
           ))}
         </div>
+          </>
+        )}
       </PageLayout>
     </>
   )

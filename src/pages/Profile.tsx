@@ -291,7 +291,7 @@ function GoalsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
 }
 
 function BodyStatsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { profile, updateProfile } = useProfile()
+  const { profile, updateProfile, logWeight } = useProfile()
   const [weight, setWeight] = useState(String(profile.weight))
   const [height, setHeight] = useState(String(profile.height))
   const [age, setAge] = useState(String(profile.age))
@@ -344,8 +344,9 @@ function BodyStatsSheet({ open, onClose }: { open: boolean; onClose: () => void 
         size="lg"
         className="mt-5"
         onClick={() => {
+          const kg = Number(weight)
+          if (kg > 0 && kg !== profile.weight) logWeight(kg)
           updateProfile({
-            weight: Number(weight) || profile.weight,
             height: Number(height) || profile.height,
             age: Number(age) || profile.age,
             gender,
