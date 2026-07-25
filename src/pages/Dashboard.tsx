@@ -9,7 +9,6 @@ import {
   Footprints,
   Dumbbell,
   Plus,
-  TrendingUp,
   ChevronRight,
 } from 'lucide-react'
 import { Bar, BarChart, ResponsiveContainer, XAxis, Cell } from 'recharts'
@@ -19,12 +18,13 @@ import { GlassCard } from '../components/ui/GlassCard'
 import { ProgressRing } from '../components/ui/ProgressRing'
 import { QuickActionButton } from '../components/ui/QuickActionButton'
 import { SectionHeader } from '../components/ui/SectionHeader'
+import { WorkoutFeedCard } from '../components/WorkoutFeedCard'
 import { useProfile } from '../context/ProfileContext'
 import { useNutrition } from '../context/NutritionContext'
 import { useWater } from '../context/WaterContext'
 import { useSteps } from '../context/StepsContext'
 import { useWorkout } from '../context/WorkoutContext'
-import { dateKey, prettyDate, formatDuration } from '../lib/format'
+import { dateKey, prettyDate } from '../lib/format'
 import { subDays, format } from 'date-fns'
 
 const container = {
@@ -72,7 +72,10 @@ export default function Dashboard() {
     return history.filter((s) => s.endTime && new Date(s.startTime) >= weekAgo).length
   }, [history])
 
-  const lastWorkout = history[0]
+  const recentWorkouts = useMemo(
+    () => history.filter((s) => s.endTime).slice(0, 3),
+    [history],
+  )
   const greeting = getGreeting()
 
   return (
@@ -174,47 +177,29 @@ export default function Dashboard() {
             </GlassCard>
           </motion.div>
 
-          {/* Recent workout */}
+          {/* Recent workouts feed */}
           <motion.div variants={item}>
             <SectionHeader
-              title="Recent Workout"
+              title="Recent Workouts"
               action={
-                <button
-                  onClick={() => navigate('/history')}
-                  className="flex items-center gap-1 text-xs text-txt-secondary"
-                >
-                  History <ChevronRight size={14} />
-                </button>
+                recentWorkouts.length > 0 ? (
+                  <button
+                    onClick={() => navigate('/history')}
+                    className="flex items-center gap-1 text-xs text-txt-secondary"
+                  >
+                    All <ChevronRight size={14} />
+                  </button>
+                ) : undefined
               }
             />
-            {lastWorkout ? (
-              <GlassCard interactive onClick={() => navigate('/history')}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-txt-primary">{lastWorkout.name}</p>
-                    <p className="mt-0.5 text-xs text-txt-secondary">
-                      {prettyDate(lastWorkout.startTime)} ·{' '}
-                      {lastWorkout.exercises.length} exercises
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-data text-lg text-lime">
-                      {Math.round(lastWorkout.totalVolume).toLocaleString()}
-                    </p>
-                    <p className="text-[10px] uppercase tracking-wide text-txt-tertiary">
-                      kg volume
-                    </p>
-                  </div>
-                </div>
-                {lastWorkout.endTime && (
-                  <div className="mt-3 flex items-center gap-1 border-t border-white/5 pt-3 text-xs text-txt-tertiary">
-                    <TrendingUp size={13} className="text-success" />
-                    {formatDuration(lastWorkout.endTime - lastWorkout.startTime)} session
-                  </div>
-                )}
-              </GlassCard>
+            {recentWorkouts.length > 0 ? (
+              <div className="space-y-3">
+                {recentWorkouts.map((s) => (
+                  <WorkoutFeedCard key={s.id} session={s} onClick={() => navigate('/history')} />
+                ))}
+              </div>
             ) : (
-              <GlassCard interactive onClick={() => navigate('/active-workout')}>
+              <GlassCard interactive onClick={() => navigate('/workout')}>
                 <div className="flex items-center gap-3 py-1">
                   <div className="flex h-11 w-11 items-center justify-center rounded-full bg-lime/10">
                     <Dumbbell size={20} className="text-lime" />

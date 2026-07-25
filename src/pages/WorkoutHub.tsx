@@ -19,6 +19,7 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { ActionSheet } from '../components/ui/ActionSheet'
 import { BodyPartChips } from '../components/ui/BodyPartChips'
+import { SegmentedControl } from '../components/ui/SegmentedControl'
 import { SectionHeader } from '../components/ui/SectionHeader'
 import { STARTER_TEMPLATES } from '../data/templates'
 import { useExercises } from '../context/ExerciseContext'
@@ -40,12 +41,15 @@ export default function WorkoutHub() {
   const { active, startWorkout } = useWorkout()
   const { templates, addTemplate, deleteTemplate } = useTemplates()
   const [builderOpen, setBuilderOpen] = useState(false)
+  const [tab, setTab] = useState<'start' | 'library'>('start')
 
   const start = (name: string, ids: string[]) => {
     const exercises = ids.map((id) => byId(id)).filter((e) => e != null)
     startWorkout(name, exercises)
     navigate('/active-workout')
   }
+
+  const suggested = [...templates, ...STARTER_TEMPLATES]
 
   return (
     <>
@@ -77,105 +81,144 @@ export default function WorkoutHub() {
           </motion.div>
         )}
 
-        {/* Quick start */}
-        <GlassCard className="mb-2 overflow-hidden">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-lime/15">
-              <Zap size={22} className="text-lime" />
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold text-txt-primary">Empty Workout</p>
-              <p className="text-xs text-txt-secondary">Start fresh & add exercises as you go</p>
-            </div>
-          </div>
-          <Button
-            full
-            className="mt-4"
-            icon={<Play size={18} fill="currentColor" />}
-            onClick={() => start('Quick Workout', [])}
-          >
-            Start Empty Workout
-          </Button>
-        </GlassCard>
-
-        {/* Library entry */}
-        <button
-          onClick={() => navigate('/exercises')}
-          className="mt-3 flex w-full items-center gap-3 rounded-lg border border-white/10 bg-bg-elevated p-4 text-left active:brightness-95"
-        >
-          <Library size={20} className="text-cyan-accent" />
-          <div className="flex-1">
-            <p className="font-medium text-txt-primary">Exercise Library</p>
-            <p className="text-xs text-txt-secondary">
-              {syncedCount > 0
-                ? `${syncedCount} exercises · GIF demos`
-                : 'Browse & sync full ExerciseDB catalog'}
-            </p>
-          </div>
-          <Search size={18} className="text-txt-tertiary" />
-        </button>
-
-        {/* My templates */}
-        <SectionHeader
-          title="My Templates"
-          action={
-            <button
-              onClick={() => setBuilderOpen(true)}
-              className="flex items-center gap-1 text-xs font-medium text-lime"
-            >
-              <Plus size={14} /> New
-            </button>
-          }
+        {/* Tabs */}
+        <SegmentedControl
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'start', label: 'Start Workout' },
+            { value: 'library', label: 'Library' },
+          ]}
+          className="mb-4"
         />
-        {templates.length === 0 ? (
-          <button
-            onClick={() => setBuilderOpen(true)}
-            className="flex w-full items-center gap-3 rounded-lg border border-dashed border-white/15 p-4 text-left active:bg-white/5"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5">
-              <Plus size={18} className="text-txt-secondary" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-txt-primary">Create your own template</p>
-              <p className="text-xs text-txt-secondary">
-                Pick exercises from the library & save your routine
-              </p>
-            </div>
-          </button>
-        ) : (
-          <div className="space-y-3">
-            {templates.map((tpl) => (
-              <TemplateCard
-                key={tpl.id}
-                tpl={tpl}
-                onStart={() => start(tpl.name, tpl.exerciseIds)}
-                onDelete={() => deleteTemplate(tpl.id)}
-              />
-            ))}
-          </div>
-        )}
 
-        {/* Starter templates */}
-        <SectionHeader title="Starter Templates" />
-        <div className="space-y-3">
-          {STARTER_TEMPLATES.map((tpl, i) => (
-            <motion.div
-              key={tpl.id}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.06, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        {tab === 'start' ? (
+          <>
+            {/* Quick start */}
+            <GlassCard className="mb-4 overflow-hidden">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-lime/15">
+                  <Zap size={22} className="text-lime" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-txt-primary">Empty Workout</p>
+                  <p className="text-xs text-txt-secondary">Start fresh & add exercises as you go</p>
+                </div>
+              </div>
+              <Button
+                full
+                className="mt-4"
+                icon={<Play size={18} fill="currentColor" />}
+                onClick={() => start('Quick Workout', [])}
+              >
+                Start Empty Workout
+              </Button>
+            </GlassCard>
+
+            {/* Suggested workouts — horizontal colored monogram cards */}
+            <SectionHeader
+              title="Suggested Workouts"
+              action={
+                <button
+                  onClick={() => setBuilderOpen(true)}
+                  className="flex items-center gap-1 text-xs font-medium text-lime"
+                >
+                  <Plus size={14} /> New
+                </button>
+              }
+            />
+            <div className="-mx-6 flex gap-3 overflow-x-auto px-6 pb-1 no-scrollbar">
+              {suggested.map((tpl) => (
+                <SuggestedCard
+                  key={tpl.id}
+                  tpl={tpl}
+                  onClick={() => start(tpl.name, tpl.exerciseIds)}
+                />
+              ))}
+              <button
+                onClick={() => setBuilderOpen(true)}
+                className="flex h-[152px] w-[70px] shrink-0 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 text-txt-secondary active:bg-white/5"
+              >
+                <Plus size={22} />
+                <span className="text-[11px]">New</span>
+              </button>
+            </div>
+
+            <button
+              onClick={() => navigate('/history')}
+              className="mt-6 flex w-full items-center justify-center gap-1 text-sm text-txt-secondary"
             >
-              <TemplateCard tpl={tpl} onStart={() => start(tpl.name, tpl.exerciseIds)} />
-            </motion.div>
-          ))}
-        </div>
+              View workout history <ChevronRight size={15} />
+            </button>
+          </>
+        ) : (
+          <>
+            {/* Exercise library entry */}
+            <button
+              onClick={() => navigate('/exercises')}
+              className="flex w-full items-center gap-3 rounded-lg border border-white/10 bg-bg-elevated p-4 text-left active:brightness-95"
+            >
+              <Library size={20} className="text-cyan-accent" />
+              <div className="flex-1">
+                <p className="font-medium text-txt-primary">Exercise Library</p>
+                <p className="text-xs text-txt-secondary">
+                  {syncedCount > 0
+                    ? `${syncedCount} exercises · demos`
+                    : 'Browse & sync full ExerciseDB catalog'}
+                </p>
+              </div>
+              <Search size={18} className="text-txt-tertiary" />
+            </button>
 
-        <button
-          onClick={() => navigate('/history')}
-          className="mt-6 flex w-full items-center justify-center gap-1 text-sm text-txt-secondary"
-        >
-          View workout history <ChevronRight size={15} />
-        </button>
+            {/* My templates */}
+            <SectionHeader
+              title="My Templates"
+              action={
+                <button
+                  onClick={() => setBuilderOpen(true)}
+                  className="flex items-center gap-1 text-xs font-medium text-lime"
+                >
+                  <Plus size={14} /> New
+                </button>
+              }
+            />
+            {templates.length === 0 ? (
+              <button
+                onClick={() => setBuilderOpen(true)}
+                className="flex w-full items-center gap-3 rounded-lg border border-dashed border-white/15 p-4 text-left active:bg-white/5"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5">
+                  <Plus size={18} className="text-txt-secondary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-txt-primary">Create your own template</p>
+                  <p className="text-xs text-txt-secondary">
+                    Pick exercises from the library & save your routine
+                  </p>
+                </div>
+              </button>
+            ) : (
+              <div className="space-y-3">
+                {templates.map((tpl) => (
+                  <TemplateCard
+                    key={tpl.id}
+                    tpl={tpl}
+                    onStart={() => start(tpl.name, tpl.exerciseIds)}
+                    onDelete={() => deleteTemplate(tpl.id)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Starter templates */}
+            <SectionHeader title="Starter Templates" />
+            <div className="space-y-3">
+              {STARTER_TEMPLATES.map((tpl) => (
+                <TemplateCard key={tpl.id} tpl={tpl} onStart={() => start(tpl.name, tpl.exerciseIds)} />
+              ))}
+            </div>
+          </>
+        )}
       </PageLayout>
 
       <TemplateBuilderSheet
@@ -232,6 +275,36 @@ function TemplateCard({
         <Play size={16} fill="currentColor" />
       </button>
     </GlassCard>
+  )
+}
+
+function SuggestedCard({ tpl, onClick }: { tpl: WorkoutTemplate; onClick: () => void }) {
+  const color = ACCENT[tpl.accent] ?? '#CCFF00'
+  return (
+    <motion.button
+      onClick={onClick}
+      whileTap={{ scale: 0.96 }}
+      className="flex w-[128px] shrink-0 flex-col text-left"
+    >
+      <div
+        className="relative flex h-[128px] w-[128px] items-center justify-center overflow-hidden rounded-lg"
+        style={{ background: color }}
+      >
+        <span
+          className="font-display text-5xl font-bold"
+          style={{ color: 'rgba(0,0,0,0.85)' }}
+        >
+          {tpl.name.charAt(0).toUpperCase()}
+        </span>
+        <span className="absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/25">
+          <Play size={13} className="text-black" fill="currentColor" />
+        </span>
+      </div>
+      <p className="mt-2 truncate text-sm font-semibold text-txt-primary">{tpl.name}</p>
+      <p className="truncate text-[11px] text-txt-secondary">
+        {tpl.exerciseIds.length} exercises
+      </p>
+    </motion.button>
   )
 }
 
